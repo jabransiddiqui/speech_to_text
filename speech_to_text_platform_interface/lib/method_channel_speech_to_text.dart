@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -14,6 +15,7 @@ class MethodChannelSpeechToText extends SpeechToTextPlatform {
   static const String notifyErrorMethod = 'notifyError';
   static const String notifyStatusMethod = 'notifyStatus';
   static const String soundLevelChangeMethod = "soundLevelChange";
+  static const String bufferBytesMethod = 'bufferBytesReceived';
 
   /// Returns true if the user has already granted permission to access the
   /// microphone, does not prompt the user.
@@ -138,6 +140,11 @@ class MethodChannelSpeechToText extends SpeechToTextPlatform {
       case notifyStatusMethod:
         if (call.arguments is String && null != onStatus) {
           onStatus!(call.arguments);
+        }
+        break;
+      case bufferBytesMethod:
+        if (call.arguments is dynamic && null != onBufferBytesReceived) {
+          onBufferBytesReceived!(call.arguments);
         }
         break;
       case soundLevelChangeMethod:

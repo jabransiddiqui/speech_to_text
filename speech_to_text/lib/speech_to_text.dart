@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
+import 'dart:typed_data';
 
 import 'package:clock/clock.dart';
 import 'package:flutter/foundation.dart';
@@ -73,6 +74,9 @@ typedef SpeechStatusListener = void Function(String status);
 /// the [listen] method for use.
 typedef SpeechSoundLevelChange = Function(double level);
 
+/// Notified when the buffer recieved during a listen method.
+typedef BufferBytesRecieved = Function(dynamic buffer);
+
 /// An interface to device specific speech recognition services.
 ///
 /// The general flow of a speech recognition session is as follows:
@@ -91,6 +95,7 @@ class SpeechToText {
   static const String textRecognitionMethod = 'textRecognition';
   static const String notifyErrorMethod = 'notifyError';
   static const String notifyStatusMethod = 'notifyStatus';
+  static const String bufferBytesMethod = 'bufferBytesReceived';
   static const String soundLevelChangeMethod = 'soundLevelChange';
   static const String listeningStatus = 'listening';
   static const String notListeningStatus = 'notListening';
@@ -171,6 +176,7 @@ class SpeechToText {
   String _lastRecognized = '';
   String _lastStatus = '';
   double _lastSoundLevel = 0;
+  dynamic? _bufferBytes;
   Timer? _listenTimer;
   Timer? _notifyFinalTimer;
   LocaleName? _systemLocale;
@@ -180,6 +186,7 @@ class SpeechToText {
   SpeechErrorListener? errorListener;
   SpeechStatusListener? statusListener;
   SpeechSoundLevelChange? _soundLevelChange;
+  BufferBytesRecieved? _bufferBytesReceived;
 
   factory SpeechToText() => _instance;
 
@@ -208,6 +215,8 @@ class SpeechToText {
   /// argument in the [listen] method to get notified of
   /// changes.
   double get lastSoundLevel => _lastSoundLevel;
+
+  Uint8List? get bufferByrs => _bufferBytes;
 
   /// True if [initialize] succeeded
   bool get isAvailable => _initWorked;
@@ -285,6 +294,8 @@ class SpeechToText {
     SpeechToTextPlatform.instance.onError = _onNotifyError;
     SpeechToTextPlatform.instance.onStatus = _onNotifyStatus;
     SpeechToTextPlatform.instance.onSoundLevel = _onSoundLevelChange;
+    SpeechToTextPlatform.instance.onBufferBytesReceived =
+        _onBufferBytesReceived;
     _initWorked = await SpeechToTextPlatform.instance
         .initialize(debugLogging: debugLogging, options: options);
     return _initWorked;
@@ -399,6 +410,7 @@ class SpeechToText {
       Duration? pauseFor,
       String? localeId,
       SpeechSoundLevelChange? onSoundLevelChange,
+      BufferBytesRecieved? onBufferBytesReceived,
       cancelOnError = false,
       partialResults = true,
       onDevice = false,
@@ -415,6 +427,7 @@ class SpeechToText {
     _notifiedFinal = false;
     _notifiedDone = false;
     _resultListener = onResult;
+    _bufferBytesReceived = onBufferBytesReceived;
     _soundLevelChange = onSoundLevelChange;
     _partialResults = partialResults;
     _notifyFinalTimer?.cancel();
@@ -427,9 +440,9 @@ class SpeechToText {
           sampleRate: sampleRate,
           localeId: localeId);
       if (started) {
-        _listenStartedAt = clock.now().millisecondsSinceEpoch;
-        _lastSpeechEventAt = _listenStartedAt;
-        _setupListenAndPause(pauseFor, listenFor);
+        // _listenStartedAt = clock.now().millisecondsSinceEpoch;
+        // _lastSpeechEventAt = _listenStartedAt;
+        // _setupListenAndPause(pauseFor, listenFor);
       }
     } on PlatformException catch (e) {
       throw ListenFailedException(e.message, e.details, e.stacktrace);
@@ -632,6 +645,16 @@ class SpeechToText {
     _lastSoundLevel = level;
     if (null != _soundLevelChange) {
       _soundLevelChange!(level);
+    }
+  }
+
+  void _onBufferBytesReceived(dynamic buffer) {
+    if (isNotListening) {
+      return;
+    }
+    _bufferBytes = buffer;
+    if (null != _bufferBytesReceived) {
+      _bufferBytesReceived!(buffer);
     }
   }
 

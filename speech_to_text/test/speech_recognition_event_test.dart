@@ -7,7 +7,12 @@ void main() {
   group('properties', () {
     test('status listening matches', () {
       var event = SpeechRecognitionEvent(
-          SpeechRecognitionEventType.statusChangeEvent, null, null, true, null);
+          SpeechRecognitionEventType.statusChangeEvent,
+          null,
+          null,
+          true,
+          null,
+          null);
       expect(event.eventType, SpeechRecognitionEventType.statusChangeEvent);
       expect(event.isListening, isTrue);
     });
@@ -17,6 +22,7 @@ void main() {
           TestSpeechChannelHandler.firstRecognizedResult,
           null,
           null,
+          null,
           null);
       expect(event.eventType, SpeechRecognitionEventType.finalRecognitionEvent);
       expect(event.recognitionResult,
@@ -24,7 +30,7 @@ void main() {
     });
     test('error matches', () {
       var event = SpeechRecognitionEvent(SpeechRecognitionEventType.errorEvent,
-          null, TestSpeechChannelHandler.firstError, null, null);
+          null, TestSpeechChannelHandler.firstError, null, null, null);
       expect(event.eventType, SpeechRecognitionEventType.errorEvent);
       expect(event.error, TestSpeechChannelHandler.firstError);
     });
@@ -34,7 +40,8 @@ void main() {
           null,
           null,
           null,
-          TestSpeechChannelHandler.level1);
+          TestSpeechChannelHandler.level1,
+          null);
       expect(event.eventType, SpeechRecognitionEventType.soundLevelChangeEvent);
       expect(event.level, TestSpeechChannelHandler.level1);
     });

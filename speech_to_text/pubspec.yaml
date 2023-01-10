@@ -10,8 +10,10 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  speech_to_text_platform_interface: ^2.0.1
-  speech_to_text_macos: ^1.0.2
+  speech_to_text_platform_interface:
+    path: ../speech_to_text_platform_interface
+  speech_to_text_macos:
+    path: ../speech_to_text_macos
   json_annotation: ^4.0.0
   clock: ^1.0.1
   pedantic: ^1.9.2

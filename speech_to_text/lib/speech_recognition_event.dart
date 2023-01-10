@@ -1,5 +1,7 @@
+import 'package:flutter/foundation.dart';
 import 'package:speech_to_text/speech_recognition_error.dart';
 import 'package:speech_to_text/speech_recognition_result.dart';
+import 'package:speech_to_text/speech_to_text.dart';
 
 enum SpeechRecognitionEventType {
   /// The final transcription of speech for a recognition session. This is
@@ -27,6 +29,9 @@ enum SpeechRecognitionEventType {
   /// Sent whenever the sound level on the input changes during a listen
   /// session.
   soundLevelChangeEvent,
+
+  //buffer
+  bufferBytesEvent
 }
 
 /// A single event in a stream of speech recognition events.
@@ -37,11 +42,12 @@ class SpeechRecognitionEvent {
   final SpeechRecognitionEventType eventType;
   final SpeechRecognitionError? _error;
   final SpeechRecognitionResult? _result;
+  final Uint8List? _bufferBytesRecieved;
   final bool? _listening;
   final double? _level;
 
-  SpeechRecognitionEvent(
-      this.eventType, this._result, this._error, this._listening, this._level);
+  SpeechRecognitionEvent(this.eventType, this._result, this._error,
+      this._listening, this._level, this._bufferBytesRecieved);
 
   /// true when there is still an active listening session, false when the
   /// listening session has ended.
@@ -52,6 +58,8 @@ class SpeechRecognitionEvent {
 
   /// The words recognized by the speech recognizer during a listen session.
   SpeechRecognitionResult? get recognitionResult => _result;
+
+  Uint8List? get bufferByts => _bufferBytesRecieved;
 
   /// The error received from the speech recognizer.
   SpeechRecognitionError? get error => _error;

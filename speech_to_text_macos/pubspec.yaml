@@ -12,7 +12,8 @@ dependencies:
   flutter:
     sdk: flutter
   plugin_platform_interface: ^2.0.2
-  speech_to_text_platform_interface: ^2.0.1
+  speech_to_text_platform_interface:
+    path: ../speech_to_text_platform_interface
 
 dev_dependencies:
   flutter_test:

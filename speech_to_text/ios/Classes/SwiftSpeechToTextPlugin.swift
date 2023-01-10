@@ -19,6 +19,7 @@ public enum SwiftSpeechToTextCallbackMethods: String {
     case notifyStatus
     case notifyError
     case soundLevelChange
+    case bufferBytesReceived
 }
 
 public enum SpeechToTextStatus: String {
@@ -467,7 +468,27 @@ public class SwiftSpeechToTextPlugin: NSObject, FlutterPlugin {
         let rms = sqrt(channelDataValueArray.map{ $0 * $0 }.reduce(0, +) / frameLength )
         let avgPower = 20 * log10(rms)
         self.invokeFlutter( SwiftSpeechToTextCallbackMethods.soundLevelChange, arguments: avgPower )
+        let data = audioBufferToBytes(audioBuffer: buffer)
+        self.invokeFlutter( SwiftSpeechToTextCallbackMethods.bufferBytesReceived, arguments: data )
     }
+    
+    func audioBufferToBytes(audioBuffer: AVAudioPCMBuffer) -> [UInt8] {
+        let srcLeft = audioBuffer.floatChannelData![0]
+        let bytesPerFrame = audioBuffer.format.streamDescription.pointee.mBytesPerFrame
+        let numBytes = Int(bytesPerFrame * audioBuffer.frameLength)
+
+        // initialize bytes by 0
+        var audioByteArray = [UInt8](repeating: 0, count: numBytes)
+
+        srcLeft.withMemoryRebound(to: UInt8.self, capacity: numBytes) { srcByteData in
+            audioByteArray.withUnsafeMutableBufferPointer {
+                $0.baseAddress!.initialize(from: srcByteData, count: numBytes)
+            }
+        }
+
+        return audioByteArray
+    }
+    
     
     /// Build a list of localId:name with the current locale first
     private func locales( _ result: @escaping FlutterResult ) {

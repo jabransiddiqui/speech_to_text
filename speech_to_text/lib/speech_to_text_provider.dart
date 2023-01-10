@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:speech_to_text/speech_recognition_error.dart';
 import 'package:speech_to_text/speech_recognition_event.dart';
@@ -29,6 +30,7 @@ class SpeechToTextProvider extends ChangeNotifier {
   final SpeechToText _speechToText;
   SpeechRecognitionResult? _lastResult;
   double _lastLevel = 0;
+  Uint8List? _buffer;
   List<LocaleName> _locales = [];
   LocaleName? _systemLocale;
 
@@ -148,6 +150,7 @@ class SpeechToTextProvider extends ChangeNotifier {
           cancelOnError: true,
           onResult: _onListenResult,
           onSoundLevelChange: _onSoundLevelChange,
+          onBufferBytesReceived: _onBufferBytesReceived,
           localeId: localeId);
     } else {
       _speechToText.listen(
@@ -185,6 +188,7 @@ class SpeechToTextProvider extends ChangeNotifier {
         null,
         errorNotification,
         isListening,
+        null,
         null));
     notifyListeners();
   }
@@ -192,14 +196,21 @@ class SpeechToTextProvider extends ChangeNotifier {
   void _onStatus(String status) {
     if (status == SpeechToText.doneStatus) {
       _recognitionController.add(SpeechRecognitionEvent(
-          SpeechRecognitionEventType.doneEvent, null, null, isListening, null));
-    } else {
-      _recognitionController.add(SpeechRecognitionEvent(
-          SpeechRecognitionEventType.statusChangeEvent,
+          SpeechRecognitionEventType.doneEvent,
           null,
           null,
           isListening,
+          null,
           null));
+    } else {
+      _recognitionController.add(SpeechRecognitionEvent(
+        SpeechRecognitionEventType.statusChangeEvent,
+        null,
+        null,
+        isListening,
+        null,
+        null,
+      ));
     }
     notifyListeners();
   }
@@ -213,6 +224,7 @@ class SpeechToTextProvider extends ChangeNotifier {
         result,
         null,
         isListening,
+        null,
         null));
     notifyListeners();
   }
@@ -224,7 +236,20 @@ class SpeechToTextProvider extends ChangeNotifier {
         null,
         null,
         null,
-        level));
+        level,
+        null));
+    notifyListeners();
+  }
+
+  void _onBufferBytesReceived(buffer) {
+    _buffer = buffer;
+    _recognitionController.add(SpeechRecognitionEvent(
+        SpeechRecognitionEventType.soundLevelChangeEvent,
+        null,
+        null,
+        null,
+        null,
+        buffer));
     notifyListeners();
   }
 }

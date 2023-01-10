@@ -58,6 +58,7 @@ enum class SpeechToTextCallbackMethods {
     notifyStatus,
     notifyError,
     soundLevelChange,
+    bufferBytesReceived,
 }
 
 enum class SpeechToTextStatus {
@@ -730,7 +731,9 @@ public class SpeechToTextPlugin :
     }
 
     override fun onReadyForSpeech(p0: Bundle?) {}
-    override fun onBufferReceived(p0: ByteArray?) {}
+    override fun onBufferReceived(p0: ByteArray?) {
+        channel?.invokeMethod(SpeechToTextCallbackMethods.bufferBytesReceived.name, p0)
+    }
     override fun onEvent(p0: Int, p1: Bundle?) {}
     override fun onBeginningOfSpeech() {}
 }

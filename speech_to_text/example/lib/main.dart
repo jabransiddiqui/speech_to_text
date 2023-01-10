@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:math';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:speech_to_text/speech_recognition_error.dart';
@@ -134,6 +135,7 @@ class _SpeechSampleAppState extends State<SpeechSampleApp> {
       partialResults: true,
       localeId: _currentLocaleId,
       onSoundLevelChange: soundLevelListener,
+      onBufferBytesReceived: buffeBytesListener,
       cancelOnError: true,
       listenMode: ListenMode.confirmation,
       onDevice: _onDevice,
@@ -165,6 +167,11 @@ class _SpeechSampleAppState extends State<SpeechSampleApp> {
     setState(() {
       lastWords = '${result.recognizedWords} - ${result.finalResult}';
     });
+  }
+
+  void buffeBytesListener(buffer) {
+    debugPrint(
+        'Received buffer : ${buffer.length}, listening: ${speech.isListening}');
   }
 
   void soundLevelListener(double level) {
@@ -263,9 +270,10 @@ class RecognitionResultsWidget extends StatelessWidget {
                     decoration: BoxDecoration(
                       boxShadow: [
                         BoxShadow(
-                            blurRadius: .26,
-                            spreadRadius: level * 1.5,
-                            color: Colors.black.withOpacity(.05))
+                          blurRadius: .26,
+                          spreadRadius: level * 1.5,
+                          color: Colors.black.withOpacity(.05),
+                        )
                       ],
                       color: Colors.white,
                       borderRadius: BorderRadius.all(Radius.circular(50)),
