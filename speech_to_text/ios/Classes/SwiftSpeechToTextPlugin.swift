@@ -418,9 +418,13 @@ public class SwiftSpeechToTextPlugin: NSObject, FlutterPlugin {
             let recordingFormat = inputNode?.outputFormat(forBus: self.busForNodeTap)
             let theSampleRate = audioSession.sampleRate
             let fmt = AVAudioFormat(commonFormat: recordingFormat!.commonFormat, sampleRate: theSampleRate, channels: recordingFormat!.channelCount, interleaved: recordingFormat!.isInterleaved)
+            let ratio: Float = Float(recordingFormat!.sampleRate)/Float(fmt!.sampleRate)
             try trap {
                 self.inputNode?.installTap(onBus: self.busForNodeTap, bufferSize: self.speechBufferSize, format: fmt) { (buffer: AVAudioPCMBuffer, when: AVAudioTime) in
                     currentRequest.append(buffer)
+                    let convertedBuffer = AVAudioPCMBuffer(pcmFormat: fmt!, frameCapacity: UInt32(Float(buffer.frameCapacity) / ratio))!
+                    let data = self.audioBufferToBytes(audioBuffer: convertedBuffer)
+                    self.invokeFlutter( SwiftSpeechToTextCallbackMethods.bufferBytesReceived, arguments: NSData(bytes: data, length: data.count) as Data )
                     self.updateSoundLevel( buffer: buffer )
                 }
             }
@@ -468,8 +472,6 @@ public class SwiftSpeechToTextPlugin: NSObject, FlutterPlugin {
         let rms = sqrt(channelDataValueArray.map{ $0 * $0 }.reduce(0, +) / frameLength )
         let avgPower = 20 * log10(rms)
         self.invokeFlutter( SwiftSpeechToTextCallbackMethods.soundLevelChange, arguments: avgPower )
-        let data = audioBufferToBytes(audioBuffer: buffer)
-        self.invokeFlutter( SwiftSpeechToTextCallbackMethods.bufferBytesReceived, arguments: data )
     }
     
     func audioBufferToBytes(audioBuffer: AVAudioPCMBuffer) -> [UInt8] {
