@@ -418,12 +418,12 @@ public class SwiftSpeechToTextPlugin: NSObject, FlutterPlugin {
             let recordingFormat = inputNode?.outputFormat(forBus: self.busForNodeTap)
             let theSampleRate = audioSession.sampleRate
             let fmt = AVAudioFormat(commonFormat: recordingFormat!.commonFormat, sampleRate: theSampleRate, channels: recordingFormat!.channelCount, interleaved: recordingFormat!.isInterleaved)
-            let ratio: Float = Float(recordingFormat!.sampleRate)/Float(fmt!.sampleRate)
+//            let ratio: Float = Float(recordingFormat!.sampleRate)/Float(fmt!.sampleRate)
             try trap {
                 self.inputNode?.installTap(onBus: self.busForNodeTap, bufferSize: self.speechBufferSize, format: fmt) { (buffer: AVAudioPCMBuffer, when: AVAudioTime) in
                     currentRequest.append(buffer)
-                    let convertedBuffer = AVAudioPCMBuffer(pcmFormat: fmt!, frameCapacity: UInt32(Float(buffer.frameCapacity) / ratio))!
-                    let data = self.audioBufferToBytes(audioBuffer: convertedBuffer)
+//                    let convertedBuffer = AVAudioPCMBuffer(pcmFormat: fmt!, frameCapacity: UInt32(Float(buffer.frameCapacity) / ratio))!
+                    let data = self.audioBufferToBytes(audioBuffer: buffer)
                     self.invokeFlutter( SwiftSpeechToTextCallbackMethods.bufferBytesReceived, arguments: NSData(bytes: data, length: data.count) as Data )
                     self.updateSoundLevel( buffer: buffer )
                 }
