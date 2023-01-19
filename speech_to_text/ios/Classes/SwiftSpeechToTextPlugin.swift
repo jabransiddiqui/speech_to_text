@@ -75,8 +75,6 @@ public class SwiftSpeechToTextPlugin: NSObject, FlutterPlugin {
     private var listeningSound: AVAudioPlayer?
     private var successSound: AVAudioPlayer?
     private var cancelSound: AVAudioPlayer?
-    private var rememberedAudioCategory: AVAudioSession.Category?
-    private var rememberedAudioCategoryOptions: AVAudioSession.CategoryOptions?
     private var previousLocale: Locale?
     private var onPlayEnd: (() -> Void)?
     private var returnPartialResults: Bool = true
@@ -84,23 +82,33 @@ public class SwiftSpeechToTextPlugin: NSObject, FlutterPlugin {
     private var onDeviceStatus: Bool = false
     private var listening = false
     private let audioSession = AVAudioSession.sharedInstance()
-    private let audioEngine = AVAudioEngine()
-    private var inputNode: AVAudioInputNode?
     private let jsonEncoder = JSONEncoder()
-    private let busForNodeTap = 0
-    private let speechBufferSize: AVAudioFrameCount = 1024
     private static var subsystem = Bundle.main.bundleIdentifier!
+    
     private let pluginLog = OSLog(subsystem: "com.csdcorp.speechToText", category: "plugin")
+    
+    //========= Recorder's vars
+    private var mAudioEngine : AVAudioEngine?
+    private let mRecordBus = 0
+    private var mInputNode: AVAudioInputNode?
+    private var mRecordSampleRate: Double = 16000 // 16Khz
+    private var mRecordBufferSize: AVAudioFrameCount = 8192
+    private var mRecordChannel = 0
+    private var mRecordSettings: [String:Int]!
+    private var mRecordFormat: AVAudioFormat!
     
     public static func register(with registrar: FlutterPluginRegistrar) {
         let channel = FlutterMethodChannel(name: "plugin.csdcorp.com/speech_to_text", binaryMessenger: registrar.messenger())
-            let instance = SwiftSpeechToTextPlugin( channel, registrar: registrar )
-            registrar.addMethodCallDelegate(instance, channel: channel )
+        let instance = SwiftSpeechToTextPlugin( channel, registrar: registrar )
+        registrar.addMethodCallDelegate(instance, channel: channel )
     }
     
     init( _ channel: FlutterMethodChannel, registrar: FlutterPluginRegistrar ) {
         self.channel = channel
         self.registrar = registrar
+        //        self.mInputNode = mAudioEngine.inputNode
+//        super.init()
+        //        mAudioEngine.prepare()
     }
     
     public func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
@@ -111,14 +119,14 @@ public class SwiftSpeechToTextPlugin: NSObject, FlutterPlugin {
             initialize( result )
         case SwiftSpeechToTextMethods.listen.rawValue:
             guard let argsArr = call.arguments as? Dictionary<String,AnyObject>,
-                let partialResults = argsArr["partialResults"] as? Bool, let onDevice = argsArr["onDevice"] as? Bool, let listenModeIndex = argsArr["listenMode"] as? Int, let sampleRate = argsArr["sampleRate"] as? Int
-                else {
-                    DispatchQueue.main.async {
-                        result(FlutterError( code: SpeechToTextErrors.missingOrInvalidArg.rawValue,
-                                             message:"Missing arg partialResults, onDevice, listenMode, and sampleRate are required",
-                                             details: nil ))
-                    }
-                    return
+                  let partialResults = argsArr["partialResults"] as? Bool, let onDevice = argsArr["onDevice"] as? Bool, let listenModeIndex = argsArr["listenMode"] as? Int, let sampleRate = argsArr["sampleRate"] as? Int
+            else {
+                DispatchQueue.main.async {
+                    result(FlutterError( code: SpeechToTextErrors.missingOrInvalidArg.rawValue,
+                                         message:"Missing arg partialResults, onDevice, listenMode, and sampleRate are required",
+                                         details: nil ))
+                }
+                return
             }
             var localeStr: String? = nil
             if let localeParam = argsArr["localeId"] as? String {
@@ -128,7 +136,7 @@ public class SwiftSpeechToTextPlugin: NSObject, FlutterPlugin {
                 DispatchQueue.main.async {
                     result(FlutterError( code: SpeechToTextErrors.missingOrInvalidArg.rawValue,
                                          message:"invalid value for listenMode, must be 0-2, was \(listenModeIndex)",
-                        details: nil ))
+                                         details: nil ))
                 }
                 return
             }
@@ -150,7 +158,7 @@ public class SwiftSpeechToTextPlugin: NSObject, FlutterPlugin {
     
     private func hasPermission( _ result: @escaping FlutterResult) {
         let has = SFSpeechRecognizer.authorizationStatus() == SFSpeechRecognizerAuthorizationStatus.authorized &&
-            self.audioSession.recordPermission == AVAudioSession.RecordPermission.granted
+        self.audioSession.recordPermission == AVAudioSession.RecordPermission.granted
         DispatchQueue.main.async {
             result( has )
         }
@@ -229,12 +237,12 @@ public class SwiftSpeechToTextPlugin: NSObject, FlutterPlugin {
             onDeviceStatus = localRecognizer.supportsOnDeviceRecognition
         }
         recognizer?.delegate = self
-        inputNode = audioEngine.inputNode
-        guard inputNode != nil else {
-            os_log("Error no input node", log: pluginLog, type: .error)
-            sendBoolResult( false, result );
-            return
-        }
+        //        inputNode = audioEngine.inputNode
+//        guard mInputNode != nil else {
+//            os_log("Error no input node", log: pluginLog, type: .error)
+//            sendBoolResult( false, result );
+//            return
+//        }
         setupListeningSound()
         
         sendBoolResult( true, result );
@@ -309,7 +317,7 @@ public class SwiftSpeechToTextPlugin: NSObject, FlutterPlugin {
         stopAllPlayers()
         do {
             try trap {
-                self.audioEngine.stop()
+                self.mAudioEngine?.stop()
             }
         }
         catch {
@@ -317,19 +325,11 @@ public class SwiftSpeechToTextPlugin: NSObject, FlutterPlugin {
         }
         do {
             try trap {
-                self.inputNode?.removeTap(onBus: self.busForNodeTap);
+                self.mInputNode?.removeTap(onBus: self.mRecordBus);
             }
         }
         catch {
             os_log("Error removing trap: %{PUBLIC}@", log: pluginLog, type: .error, error.localizedDescription)
-        }
-        do {
-            if let rememberedAudioCategory = rememberedAudioCategory, let rememberedAudioCategoryOptions = rememberedAudioCategoryOptions {
-                try self.audioSession.setCategory(rememberedAudioCategory,options: rememberedAudioCategoryOptions)
-            }
-        }
-        catch {
-            os_log("Error stopping listen: %{PUBLIC}@", log: pluginLog, type: .error, error.localizedDescription)
         }
         do {
             try self.audioSession.setActive(false, options: .notifyOthersOnDeactivation)
@@ -338,7 +338,7 @@ public class SwiftSpeechToTextPlugin: NSObject, FlutterPlugin {
             os_log("Error deactivation: %{PUBLIC}@", log: pluginLog, type: .info, error.localizedDescription)
         }
         self.invokeFlutter( SwiftSpeechToTextCallbackMethods.notifyStatus, arguments: SpeechToTextStatus.done.rawValue )
-
+        //        audioSession = nil;
         currentRequest = nil
         currentTask = nil
         onPlayEnd = nil
@@ -351,16 +351,18 @@ public class SwiftSpeechToTextPlugin: NSObject, FlutterPlugin {
             return
         }
         do {
-        //    let inErrorTest = true
+            //    let inErrorTest = true
             failedListen = false
             returnPartialResults = partialResults
+            // MARK: 1. Create a recognizer.
             setupRecognizerForLocale(locale: getLocale(localeStr))
-            guard let localRecognizer = recognizer else {
+            guard let localRecognizer = recognizer, localRecognizer.isAvailable else {
                 result(FlutterError( code: SpeechToTextErrors.noRecognizerError.rawValue,
                                      message:"Failed to create speech recognizer",
                                      details: nil ))
                 return
             }
+            
             if ( onDevice ) {
                 if #available(iOS 13.0, *), !localRecognizer.supportsOnDeviceRecognition {
                     result(FlutterError( code: SpeechToTextErrors.onDeviceError.rawValue,
@@ -368,29 +370,7 @@ public class SwiftSpeechToTextPlugin: NSObject, FlutterPlugin {
                                          details: nil ))
                 }
             }
-            rememberedAudioCategory = self.audioSession.category
-            rememberedAudioCategoryOptions = self.audioSession.categoryOptions
-            try self.audioSession.setCategory(AVAudioSession.Category.playAndRecord, options: [.defaultToSpeaker,.allowBluetooth,.allowBluetoothA2DP])
-            //            try self.audioSession.setMode(AVAudioSession.Mode.measurement)
-            if ( sampleRate > 0 ) {
-                try self.audioSession.setPreferredSampleRate(Double(sampleRate))
-            }
-            try self.audioSession.setMode(AVAudioSession.Mode.default)
-            try self.audioSession.setActive(true, options: .notifyOthersOnDeactivation)
-            if let sound = listeningSound {
-                self.onPlayEnd = {()->Void in
-                    if ( !self.failedListen ) {
-                        self.listening = true
-                        self.invokeFlutter( SwiftSpeechToTextCallbackMethods.notifyStatus, arguments: SpeechToTextStatus.listening.rawValue )
-
-                    }
-                }
-                sound.play()
-            }
-            self.audioEngine.reset();
-            if(inputNode?.inputFormat(forBus: 0).channelCount == 0){
-                throw SpeechToTextError.runtimeError("Not enough available inputs.")
-            }
+            // MARK: 2. Create a speech recognition request.
             self.currentRequest = SFSpeechAudioBufferRecognitionRequest()
             guard let currentRequest = self.currentRequest else {
                 sendBoolResult( false, result );
@@ -415,29 +395,50 @@ public class SwiftSpeechToTextPlugin: NSObject, FlutterPlugin {
             }
             
             self.currentTask = self.recognizer?.recognitionTask(with: currentRequest, delegate: self )
-            let recordingFormat = inputNode?.outputFormat(forBus: self.busForNodeTap)
-            let theSampleRate = audioSession.sampleRate
-            let fmt = AVAudioFormat(commonFormat: recordingFormat!.commonFormat, sampleRate: theSampleRate, channels: recordingFormat!.channelCount, interleaved: recordingFormat!.isInterleaved)
-//            let ratio: Float = Float(recordingFormat!.sampleRate)/Float(fmt!.sampleRate)
-            try trap {
-                self.inputNode?.installTap(onBus: self.busForNodeTap, bufferSize: self.speechBufferSize, format: fmt) { (buffer: AVAudioPCMBuffer, when: AVAudioTime) in
-                    currentRequest.append(buffer)
-//                    let convertedBuffer = AVAudioPCMBuffer(pcmFormat: fmt!, frameCapacity: UInt32(Float(buffer.frameCapacity) / ratio))!
-                    let data = self.audioBufferToBytes(audioBuffer: buffer)
-                    self.invokeFlutter( SwiftSpeechToTextCallbackMethods.bufferBytesReceived, arguments: NSData(bytes: data, length: data.count) as Data )
-                    self.updateSoundLevel( buffer: buffer )
+            
+            // MARK: 3. Create a recording and classification pipeline.
+            self.mAudioEngine = AVAudioEngine()
+            
+            self.mInputNode = mAudioEngine?.inputNode
+            mRecordFormat = AVAudioFormat(commonFormat: AVAudioCommonFormat.pcmFormatInt16, sampleRate: mRecordSampleRate, channels: 1, interleaved: true)
+            let recordingFormat = self.mInputNode?.outputFormat(forBus: 0)
+            let converter = AVAudioConverter(from: recordingFormat!, to: mRecordFormat!)!
+            let ratio: Float = Float(recordingFormat!.sampleRate)/Float(mRecordFormat.sampleRate)
+            self.mInputNode?.installTap(onBus: mRecordBus, bufferSize: mRecordBufferSize, format: recordingFormat) { (buffer, _) in
+                let inputCallback: AVAudioConverterInputBlock = { inNumPackets, outStatus in
+                    outStatus.pointee = .haveData
+                    return buffer
                 }
+                let convertedBuffer = AVAudioPCMBuffer(pcmFormat: self.mRecordFormat!, frameCapacity: UInt32(Float(buffer.frameCapacity) / ratio))!
+                var error: NSError?
+                let status = converter.convert(to: convertedBuffer, error: &error, withInputFrom: inputCallback)
+                assert(status != .error)
+                self.currentRequest?.append(buffer)
+                
+                let data = self.audioBufferToBytes(audioBuffer: convertedBuffer)
+                
+                self.invokeFlutter( SwiftSpeechToTextCallbackMethods.bufferBytesReceived, arguments: NSData(bytes: data, length: data.count) as Data )
+                self.updateSoundLevel( buffer: buffer )
             }
-        //    if ( inErrorTest ){
-        //        throw SpeechToTextError.runtimeError("for testing only")
-        //    }
-            self.audioEngine.prepare()
-            try self.audioEngine.start()
+            // Build the graph.
+            self.mAudioEngine?.prepare()
+            
+            // MARK: 4. Start recognizing speech.
+            
+            // Activate the session.
+            try audioSession.setCategory(.record, mode: .spokenAudio, options: .duckOthers)
+            try audioSession.setActive(true, options: .notifyOthersOnDeactivation)
+            try audioSession.setPreferredSampleRate(Double(sampleRate))
+            
+            // Start the processing pipeline.
+            try self.mAudioEngine?.start()
+            
             if nil == listeningSound {
                 listening = true
                 self.invokeFlutter( SwiftSpeechToTextCallbackMethods.notifyStatus, arguments: SpeechToTextStatus.listening.rawValue )
             }
             sendBoolResult( true, result );
+            
         }
         catch {
             failedListen = true
@@ -460,8 +461,8 @@ public class SwiftSpeechToTextPlugin: NSObject, FlutterPlugin {
     private func updateSoundLevel( buffer: AVAudioPCMBuffer) {
         guard
             let channelData = buffer.floatChannelData
-            else {
-                return
+        else {
+            return
         }
         
         let channelDataValue = channelData.pointee
@@ -475,22 +476,21 @@ public class SwiftSpeechToTextPlugin: NSObject, FlutterPlugin {
     }
     
     func audioBufferToBytes(audioBuffer: AVAudioPCMBuffer) -> [UInt8] {
-        let srcLeft = audioBuffer.floatChannelData![0]
+        let srcLeft = audioBuffer.int16ChannelData![0]
         let bytesPerFrame = audioBuffer.format.streamDescription.pointee.mBytesPerFrame
         let numBytes = Int(bytesPerFrame * audioBuffer.frameLength)
-
+        
         // initialize bytes by 0
         var audioByteArray = [UInt8](repeating: 0, count: numBytes)
-
+        
         srcLeft.withMemoryRebound(to: UInt8.self, capacity: numBytes) { srcByteData in
             audioByteArray.withUnsafeMutableBufferPointer {
                 $0.baseAddress!.initialize(from: srcByteData, count: numBytes)
             }
         }
-
+        
         return audioByteArray
     }
-    
     
     /// Build a list of localId:name with the current locale first
     private func locales( _ result: @escaping FlutterResult ) {
@@ -609,7 +609,7 @@ extension SwiftSpeechToTextPlugin : SFSpeechRecognitionTaskDelegate {
                     errorMsg = "error_retry"
                 case 1110:
                     errorMsg = "error_no_match"
-                default:                    
+                default:
                     errorMsg = "error_unknown (\(err.code))"
                 }
                 let speechError = SpeechRecognitionError(errorMsg: errorMsg, permanent: true )
