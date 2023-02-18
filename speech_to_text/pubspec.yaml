@@ -17,7 +17,7 @@ dependencies:
   speech_to_text_macos: 
     git: 
       url: https://github.com/jabransiddiqui/speech_to_text
-      path: speech_to_text_platform_interface
+      path: speech_to_text_macos
   json_annotation: ^4.0.0
   clock: ^1.0.1
   pedantic: ^1.9.2
