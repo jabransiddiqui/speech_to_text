@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
-import 'dart:typed_data';
 
 import 'package:clock/clock.dart';
 import 'package:flutter/foundation.dart';
@@ -75,7 +74,7 @@ typedef SpeechStatusListener = void Function(String status);
 typedef SpeechSoundLevelChange = Function(double level);
 
 /// Notified when the buffer recieved during a listen method.
-typedef BufferBytesRecieved = Function(dynamic buffer);
+typedef BufferBytesRecieved = Function(Uint8List buffer);
 
 /// An interface to device specific speech recognition services.
 ///
@@ -95,8 +94,8 @@ class SpeechToText {
   static const String textRecognitionMethod = 'textRecognition';
   static const String notifyErrorMethod = 'notifyError';
   static const String notifyStatusMethod = 'notifyStatus';
-  static const String bufferBytesMethod = 'bufferBytesReceived';
   static const String soundLevelChangeMethod = 'soundLevelChange';
+  static const String bufferBytesReceivedMethod = 'bufferBytesReceived';
   static const String listeningStatus = 'listening';
   static const String notListeningStatus = 'notListening';
   static const String doneStatus = 'done';
@@ -176,7 +175,7 @@ class SpeechToText {
   String _lastRecognized = '';
   String _lastStatus = '';
   double _lastSoundLevel = 0;
-  dynamic? _bufferBytes;
+  Uint8List? _bufferBytes;
   Timer? _listenTimer;
   Timer? _notifyFinalTimer;
   LocaleName? _systemLocale;
@@ -212,11 +211,12 @@ class SpeechToText {
   ///
   /// The sound level is a measure of how loud the current
   /// input is during listening. Use the [onSoundLevelChange]
+  /// /// input is during listening. Use the [onBufferBytesReceived]
   /// argument in the [listen] method to get notified of
   /// changes.
   double get lastSoundLevel => _lastSoundLevel;
 
-  Uint8List? get bufferByrs => _bufferBytes;
+  Uint8List? get bufferBytes => _bufferBytes;
 
   /// True if [initialize] succeeded
   bool get isAvailable => _initWorked;
@@ -378,6 +378,7 @@ class SpeechToText {
   /// supported languages for listening.
   ///
   /// [onSoundLevelChange] is an optional listener that is notified when the
+  /// [onBufferBytesReceived] is an optional listener that is notified when the
   /// sound level of the input changes. Use this to update the UI in response to
   /// more or less input. The values currently differ between Ancroid and iOS,
   /// haven't yet been able to determine from the Android documentation what the
@@ -427,8 +428,8 @@ class SpeechToText {
     _notifiedFinal = false;
     _notifiedDone = false;
     _resultListener = onResult;
-    _bufferBytesReceived = onBufferBytesReceived;
     _soundLevelChange = onSoundLevelChange;
+    _bufferBytesReceived = onBufferBytesReceived;
     _partialResults = partialResults;
     _notifyFinalTimer?.cancel();
     _notifyFinalTimer = null;
@@ -440,9 +441,9 @@ class SpeechToText {
           sampleRate: sampleRate,
           localeId: localeId);
       if (started) {
-        // _listenStartedAt = clock.now().millisecondsSinceEpoch;
-        // _lastSpeechEventAt = _listenStartedAt;
-        // _setupListenAndPause(pauseFor, listenFor);
+        _listenStartedAt = clock.now().millisecondsSinceEpoch;
+        _lastSpeechEventAt = _listenStartedAt;
+        _setupListenAndPause(pauseFor, listenFor);
       }
     } on PlatformException catch (e) {
       throw ListenFailedException(e.message, e.details, e.stacktrace);
@@ -648,7 +649,7 @@ class SpeechToText {
     }
   }
 
-  void _onBufferBytesReceived(dynamic buffer) {
+  void _onBufferBytesReceived(Uint8List buffer) {
     if (isNotListening) {
       return;
     }

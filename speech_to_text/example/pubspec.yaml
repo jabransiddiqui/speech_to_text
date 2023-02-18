@@ -17,6 +17,8 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
 
+  path_provider:
+  share_plus:
   speech_to_text:
     path: ../
 

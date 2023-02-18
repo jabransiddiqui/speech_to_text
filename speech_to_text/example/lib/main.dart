@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:math';
 import 'dart:typed_data';
 
@@ -6,6 +7,8 @@ import 'package:flutter/material.dart';
 import 'package:speech_to_text/speech_recognition_error.dart';
 import 'package:speech_to_text/speech_recognition_result.dart';
 import 'package:speech_to_text/speech_to_text.dart';
+import 'package:speech_to_text_example/helper.dart';
+import 'package:share_plus/share_plus.dart';
 
 void main() => runApp(SpeechSampleApp());
 
@@ -33,6 +36,7 @@ class _SpeechSampleAppState extends State<SpeechSampleApp> {
   String lastStatus = '';
   String _currentLocaleId = '';
   List<LocaleName> _localeNames = [];
+  List<int> byteList = [];
   final SpeechToText speech = SpeechToText();
 
   @override
@@ -143,12 +147,20 @@ class _SpeechSampleAppState extends State<SpeechSampleApp> {
     setState(() {});
   }
 
-  void stopListening() {
+  void stopListening() async {
     _logEvent('stop');
     speech.stop();
     setState(() {
       level = 0.0;
     });
+    await Helper.instance.deleteDir();
+    String folderInAppDocDir =
+        await Helper.instance.createFolderInAppDocDir('voice_smaples');
+    File file = File(
+        "$folderInAppDocDir/recordSample_${DateTime.now().millisecondsSinceEpoch}.mp3");
+    var data = Helper.instance.waveFormate(byteList);
+    await file.writeAsBytes(data, mode: FileMode.append);
+    Share.shareFiles([file.path]);
   }
 
   void cancelListening() {
@@ -169,18 +181,20 @@ class _SpeechSampleAppState extends State<SpeechSampleApp> {
     });
   }
 
-  void buffeBytesListener(buffer) {
-    debugPrint(
-        'Received buffer : ${buffer.length}, listening: ${speech.isListening}');
-  }
-
   void soundLevelListener(double level) {
     minSoundLevel = min(minSoundLevel, level);
     maxSoundLevel = max(maxSoundLevel, level);
-    // _logEvent('sound level $level: $minSoundLevel - $maxSoundLevel ');
+    _logEvent('sound level $level: $minSoundLevel - $maxSoundLevel ');
     setState(() {
       this.level = level;
     });
+  }
+
+  void buffeBytesListener(Uint8List buffer) {
+    // final buff = Uint8List.fromList(buffer);
+    byteList.addAll(buffer.buffer.asInt8List().toList());
+    debugPrint(
+        'Received buffer : ${buffer.length}, listening: ${speech.isListening}');
   }
 
   void errorListener(SpeechRecognitionError error) {
@@ -270,10 +284,9 @@ class RecognitionResultsWidget extends StatelessWidget {
                     decoration: BoxDecoration(
                       boxShadow: [
                         BoxShadow(
-                          blurRadius: .26,
-                          spreadRadius: level * 1.5,
-                          color: Colors.black.withOpacity(.05),
-                        )
+                            blurRadius: .26,
+                            spreadRadius: level * 1.5,
+                            color: Colors.black.withOpacity(.05))
                       ],
                       color: Colors.white,
                       borderRadius: BorderRadius.all(Radius.circular(50)),

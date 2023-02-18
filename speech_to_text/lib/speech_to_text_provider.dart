@@ -1,6 +1,6 @@
 import 'dart:async';
+import 'dart:typed_data';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:speech_to_text/speech_recognition_error.dart';
 import 'package:speech_to_text/speech_recognition_event.dart';
@@ -184,24 +184,26 @@ class SpeechToTextProvider extends ChangeNotifier {
 
   void _onError(SpeechRecognitionError errorNotification) {
     _recognitionController.add(SpeechRecognitionEvent(
-        SpeechRecognitionEventType.errorEvent,
-        null,
-        errorNotification,
-        isListening,
-        null,
-        null));
+      SpeechRecognitionEventType.errorEvent,
+      null,
+      errorNotification,
+      isListening,
+      null,
+      null,
+    ));
     notifyListeners();
   }
 
   void _onStatus(String status) {
     if (status == SpeechToText.doneStatus) {
       _recognitionController.add(SpeechRecognitionEvent(
-          SpeechRecognitionEventType.doneEvent,
-          null,
-          null,
-          isListening,
-          null,
-          null));
+        SpeechRecognitionEventType.doneEvent,
+        null,
+        null,
+        isListening,
+        null,
+        null,
+      ));
     } else {
       _recognitionController.add(SpeechRecognitionEvent(
         SpeechRecognitionEventType.statusChangeEvent,
@@ -218,33 +220,35 @@ class SpeechToTextProvider extends ChangeNotifier {
   void _onListenResult(SpeechRecognitionResult result) {
     _lastResult = result;
     _recognitionController.add(SpeechRecognitionEvent(
-        result.finalResult
-            ? SpeechRecognitionEventType.finalRecognitionEvent
-            : SpeechRecognitionEventType.partialRecognitionEvent,
-        result,
-        null,
-        isListening,
-        null,
-        null));
+      result.finalResult
+          ? SpeechRecognitionEventType.finalRecognitionEvent
+          : SpeechRecognitionEventType.partialRecognitionEvent,
+      result,
+      null,
+      isListening,
+      null,
+      null,
+    ));
     notifyListeners();
   }
 
   void _onSoundLevelChange(double level) {
     _lastLevel = level;
     _recognitionController.add(SpeechRecognitionEvent(
-        SpeechRecognitionEventType.soundLevelChangeEvent,
-        null,
-        null,
-        null,
-        level,
-        null));
+      SpeechRecognitionEventType.soundLevelChangeEvent,
+      null,
+      null,
+      null,
+      level,
+      null,
+    ));
     notifyListeners();
   }
 
   void _onBufferBytesReceived(buffer) {
     _buffer = buffer;
     _recognitionController.add(SpeechRecognitionEvent(
-        SpeechRecognitionEventType.soundLevelChangeEvent,
+        SpeechRecognitionEventType.bufferBytesReceivedEvent,
         null,
         null,
         null,

@@ -53,7 +53,5 @@
 	<string>Folktells can optionally use Bluetooth headsets for voice and video calls.</string>
 	<key>NSBluetoothAlwaysUsageDescription</key>
 	<string>Folktells can optionally use Bluetooth headsets for voice and video calls.</string>
-	<key>CADisableMinimumFrameDurationOnPhone</key>
-	<true/>
 </dict>
 </plist>

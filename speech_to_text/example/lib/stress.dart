@@ -239,6 +239,7 @@ class _MyAppState extends State<MyApp> {
         listenFor: Duration(seconds: 10),
         localeId: _currentLocaleId,
         onSoundLevelChange: soundLevelListener,
+        onBufferBytesReceived: buffeBytesListener,
         cancelOnError: true,
         partialResults: true);
     setState(() {});
@@ -268,6 +269,11 @@ class _MyAppState extends State<MyApp> {
     setState(() {
       this.level = level;
     });
+  }
+
+  void buffeBytesListener(buffer) {
+    debugPrint(
+        'Received buffer : ${buffer.length}, listening: ${speech.isListening}');
   }
 
   void errorListener(SpeechRecognitionError error) {

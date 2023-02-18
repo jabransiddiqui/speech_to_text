@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:ffi';
 import 'dart:typed_data';
 
 import 'package:plugin_platform_interface/plugin_platform_interface.dart';
@@ -57,7 +56,7 @@ abstract class SpeechToTextPlatform extends PlatformInterface {
   void Function(String error)? onError;
   void Function(String status)? onStatus;
   void Function(double level)? onSoundLevel;
-  void Function(dynamic buffer)? onBufferBytesReceived;
+  void Function(Uint8List buffer)? onBufferBytesReceived;
 
   /// Returns true if the user has already granted permission to access the
   /// microphone, does not prompt the user.
